@@ -1,0 +1,266 @@
+{
+  "last_node_id": 70,
+  "last_link_id": 120,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "CheckpointLoaderSimple",
+      "pos": [50, 50],
+      "size": [315, 58],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "MODEL", "type": "MODEL", "links": [1, 2]},
+        {"name": "CLIP", "type": "CLIP", "links": [3]},
+        {"name": "VAE", "type": "VAE", "links": [4]}
+      ],
+      "widgets_values": ["v1-5-pruned-emaonly.ckpt"]
+    },
+    {
+      "id": 2,
+      "type": "CLIPTextEncode",
+      "pos": [450, 50],
+      "size": [400, 180],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [{"name": "clip", "type": "CLIP", "link": 3}],
+      "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "links": [5]}],
+      "widgets_values": ["photorealistic portrait of a person, detailed face, beautiful hairstyle, high quality, 8k, sharp focus, natural lighting, professional photography"]
+    },
+    {
+      "id": 3,
+      "type": "CLIPTextEncode",
+      "pos": [450, 260],
+      "size": [400, 180],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [{"name": "clip", "type": "CLIP", "link": 3}],
+      "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "links": [6]}],
+      "widgets_values": ["ugly, deformed, blurry, bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, disgusting, poorly drawn hands, missing limb, watermark, text"]
+    },
+    {
+      "id": 4,
+      "type": "LoadImage",
+      "pos": [50, 200],
+      "size": [315, 310],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "IMAGE", "type": "IMAGE", "links": [7, 8, 9]},
+        {"name": "MASK", "type": "MASK", "links": []}
+      ],
+      "widgets_values": ["user_portrait.png", "image"]
+    },
+    {
+      "id": 5,
+      "type": "LoadImage",
+      "pos": [50, 550],
+      "size": [315, 310],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "IMAGE", "type": "IMAGE", "links": [10]},
+        {"name": "MASK", "type": "MASK", "links": []}
+      ],
+      "widgets_values": ["hairstyle_reference.png", "image"]
+    },
+    {
+      "id": 6,
+      "type": "IPAdapterModelLoader",
+      "pos": [50, 900],
+      "size": [315, 58],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [{"name": "IPADAPTER", "type": "IPADAPTER", "links": [11]}],
+      "widgets_values": ["ip-adapter-plus_sd15.safetensors"]
+    },
+    {
+      "id": 7,
+      "type": "IPAdapterApply",
+      "pos": [900, 50],
+      "size": [350, 200],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {"name": "ipadapter", "type": "IPADAPTER", "link": 11},
+        {"name": "model", "type": "MODEL", "link": 1},
+        {"name": "image", "type": "IMAGE", "link": 10}
+      ],
+      "outputs": [{"name": "MODEL", "type": "MODEL", "links": [12]}],
+      "widgets_values": [0.75, 0, 0, 1, "reference only"]
+    },
+    {
+      "id": 8,
+      "type": "ControlNetLoader",
+      "pos": [50, 980],
+      "size": [315, 58],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [{"name": "CONTROL_NET", "type": "CONTROL_NET", "links": [13]}],
+      "widgets_values": ["control_sd15_openpose.pth"]
+    },
+    {
+      "id": 9,
+      "type": "DWPreprocessor",
+      "pos": [450, 480],
+      "size": [315, 120],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [{"name": "image", "type": "IMAGE", "link": 7}],
+      "outputs": [{"name": "IMAGE", "type": "IMAGE", "links": [14]}],
+      "widgets_values": [true, true, false, 512]
+    },
+    {
+      "id": 10,
+      "type": "ControlNetApplyAdvanced",
+      "pos": [1300, 50],
+      "size": [350, 200],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {"name": "positive", "type": "CONDITIONING", "link": 5},
+        {"name": "negative", "type": "CONDITIONING", "link": 6},
+        {"name": "control_net", "type": "CONTROL_NET", "link": 13},
+        {"name": "image", "type": "IMAGE", "link": 14}
+      ],
+      "outputs": [
+        {"name": "positive", "type": "CONDITIONING", "links": [15]},
+        {"name": "negative", "type": "CONDITIONING", "links": [16]}
+      ],
+      "widgets_values": [0.6, 1.0, 0, 0.5]
+    },
+    {
+      "id": 11,
+      "type": "ControlNetLoader",
+      "pos": [50, 1060],
+      "size": [315, 58],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [{"name": "CONTROL_NET", "type": "CONTROL_NET", "links": [17]}],
+      "widgets_values": ["control_sd15_canny.pth"]
+    },
+    {
+      "id": 12,
+      "type": "Canny",
+      "pos": [450, 630],
+      "size": [315, 110],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [{"name": "image", "type": "IMAGE", "link": 8}],
+      "outputs": [{"name": "IMAGE", "type": "IMAGE", "links": [18]}],
+      "widgets_values": [50, 150, 512]
+    },
+    {
+      "id": 13,
+      "type": "ControlNetApplyAdvanced",
+      "pos": [1300, 280],
+      "size": [350, 200],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {"name": "positive", "type": "CONDITIONING", "link": 15},
+        {"name": "negative", "type": "CONDITIONING", "link": 16},
+        {"name": "control_net", "type": "CONTROL_NET", "link": 17},
+        {"name": "image", "type": "IMAGE", "link": 18}
+      ],
+      "outputs": [
+        {"name": "positive", "type": "CONDITIONING", "links": [19]},
+        {"name": "negative", "type": "CONDITIONING", "links": [20]}
+      ],
+      "widgets_values": [0.4, 0.7, 0.5, 1.0]
+    },
+    {
+      "id": 14,
+      "type": "VAEDecode",
+      "pos": [1700, 350],
+      "size": [220, 46],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {"name": "samples", "type": "LATENT", "link": 21},
+        {"name": "vae", "type": "VAE", "link": 4}
+      ],
+      "outputs": [{"name": "IMAGE", "type": "IMAGE", "links": [22]}]
+    },
+    {
+      "id": 15,
+      "type": "KSampler",
+      "pos": [1700, 50],
+      "size": [350, 260],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {"name": "model", "type": "MODEL", "link": 12},
+        {"name": "positive", "type": "CONDITIONING", "link": 19},
+        {"name": "negative", "type": "CONDITIONING", "link": 20},
+        {"name": "latent_image", "type": "LATENT", "link": 23}
+      ],
+      "outputs": [{"name": "LATENT", "type": "LATENT", "links": [21]}],
+      "widgets_values": [12345, "randomize", 25, 7, "dpmpp_2m", "karras", 0.65]
+    },
+    {
+      "id": 16,
+      "type": "VAEEncode",
+      "pos": [900, 300],
+      "size": [220, 46],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {"name": "pixels", "type": "IMAGE", "link": 9},
+        {"name": "vae", "type": "VAE", "link": 4}
+      ],
+      "outputs": [{"name": "LATENT", "type": "LATENT", "links": [23]}]
+    },
+    {
+      "id": 17,
+      "type": "SaveImage",
+      "pos": [2000, 350],
+      "size": [315, 270],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [{"name": "images", "type": "IMAGE", "link": 22}],
+      "outputs": [],
+      "widgets_values": ["hairstyle_result"]
+    },
+    {
+      "id": 18,
+      "type": "Rembg",
+      "pos": [450, 770],
+      "size": [315, 80],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [{"name": "image", "type": "IMAGE", "link": 10}],
+      "outputs": [{"name": "IMAGE", "type": "IMAGE", "links": []}],
+      "widgets_values": []
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

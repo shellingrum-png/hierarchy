@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 发型替换工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .upload-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .upload-box {
+            border: 3px dashed #ddd;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .upload-box:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .upload-box.dragover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .upload-box.has-image {
+            border-style: solid;
+            padding: 10px;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #ccc;
+            margin-bottom: 15px;
+        }
+
+        .upload-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .upload-desc {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .upload-box input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 280px;
+            border-radius: 10px;
+            object-fit: contain;
+        }
+
+        .btn-section {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .process-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 60px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .process-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.5);
+        }
+
+        .process-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .result-section {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid #eee;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-title {
+            text-align: center;
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+
+        .result-image-container {
+            text-align: center;
+        }
+
+        .result-image {
+            max-width: 100%;
+            max-height: 500px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .tips-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+        }
+
+        .tips-title {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .tips-list {
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .download-btn {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            margin-top: 20px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .upload-section {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💇 AI 发型替换工具</h1>
+        <p class="subtitle">上传你的照片和喜欢的发型照片，AI 将为你实现完美发型转换</p>
+        
+        <div class="main-card">
+            <div class="upload-section">
+                <div class="upload-box" id="userPhotoBox">
+                    <input type="file" id="userPhotoInput" accept="image/*">
+                    <div class="upload-icon">📸</div>
+                    <div class="upload-title">你的照片</div>
+                    <div class="upload-desc">点击或拖拽上传你的正面照<br>建议使用清晰的正面人脸照片</div>
+                </div>
+                
+                <div class="upload-box" id="hairstylePhotoBox">
+                    <input type="file" id="hairstylePhotoInput" accept="image/*">
+                    <div class="upload-icon">✂️</div>
+                    <div class="upload-title">发型参考</div>
+                    <div class="upload-desc">点击或拖拽上传发型参考图<br>选择你喜欢的发型照片</div>
+                </div>
+            </div>
+            
+            <div class="btn-section">
+                <button class="process-btn" id="processBtn" disabled>开始换发型 ✨</button>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div class="loading-text">AI 正在为你设计新发型，请稍候...</div>
+                <div style="color:#999; font-size:0.9rem; margin-top:10px;">通常需要 30-60 秒</div>
+            </div>
+            
+            <div class="error-message" id="errorMessage"></div>
+            
+            <div class="result-section" id="resultSection">
+                <div class="result-title">🎉 发型转换完成！</div>
+                <div class="result-image-container">
+                    <img id="resultImage" class="result-image" alt="发型转换结果">
+                    <br>
+                    <a id="downloadLink" class="download-btn" download="hairstyle_result.png">📥 下载结果</a>
+                </div>
+            </div>
+            
+            <div class="tips-section">
+                <div class="tips-title">💡 使用提示</div>
+                <div class="tips-list">
+                    • 请确保上传的照片光线充足，人脸清晰可见<br>
+                    • 正面照片效果最佳，避免遮挡面部的配饰<br>
+                    • 发型参考图建议选择正面、高分辨率的图片<br>
+                    • 确保 ComfyUI 服务已启动并正确配置
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userPhotoFile = null;
+        let hairstylePhotoFile = null;
+
+        function setupUploadBox(boxId, inputId, type) {
+            const box = document.getElementById(boxId);
+            const input = document.getElementById(inputId);
+
+            input.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0], box, type);
+                }
+            });
+
+            box.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                box.classList.add('dragover');
+            });
+
+            box.addEventListener('dragleave', function(e) {
+                box.classList.remove('dragover');
+            });
+
+            box.addEventListener('drop', function(e) {
+                e.preventDefault();
+                box.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) {
+                    handleFile(e.dataTransfer.files[0], box, type);
+                }
+            });
+        }
+
+        function handleFile(file, box, type) {
+            if (!file.type.startsWith('image/')) {
+                showError('请上传图片文件');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                box.classList.add('has-image');
+                box.innerHTML = `
+                    <img src="${e.target.result}" class="preview-image" alt="预览">
+                    <input type="file" accept="image/*" style="position:absolute;width:100%;height:100%;opacity:0;cursor:pointer;">
+                `;
+                
+                // Reattach event listener
+                const newInput = box.querySelector('input');
+                newInput.addEventListener('change', function(ev) {
+                    if (ev.target.files.length > 0) {
+                        handleFile(ev.target.files[0], box, type);
+                    }
+                });
+
+                if (type === 'user') {
+                    userPhotoFile = file;
+                } else {
+                    hairstylePhotoFile = file;
+                }
+
+                checkReady();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function checkReady() {
+            const btn = document.getElementById('processBtn');
+            btn.disabled = !(userPhotoFile && hairstylePhotoFile);
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+            setTimeout(() => {
+                errorEl.classList.remove('show');
+            }, 5000);
+        }
+
+        async function processHairstyle() {
+            const loading = document.getElementById('loading');
+            const resultSection = document.getElementById('resultSection');
+            const processBtn = document.getElementById('processBtn');
+            
+            loading.classList.add('show');
+            resultSection.classList.remove('show');
+            processBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('user_photo', userPhotoFile);
+            formData.append('hairstyle_photo', hairstylePhotoFile);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('resultImage').src = data.result_url;
+                    document.getElementById('downloadLink').href = data.result_url;
+                    resultSection.classList.add('show');
+                } else {
+                    showError(data.error || '处理失败，请重试');
+                }
+            } catch (error) {
+                showError('网络错误，请检查服务器连接');
+                console.error(error);
+            } finally {
+                loading.classList.remove('show');
+                processBtn.disabled = false;
+            }
+        }
+
+        setupUploadBox('userPhotoBox', 'userPhotoInput', 'user');
+        setupUploadBox('hairstylePhotoBox', 'hairstylePhotoInput', 'hairstyle');
+
+        document.getElementById('processBtn').addEventListener('click', processHairstyle);
+    </script>
+</body>
+</html>
