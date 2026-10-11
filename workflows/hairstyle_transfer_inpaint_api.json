@@ -1,0 +1,115 @@
+{
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 25,
+      "cfg": 7.5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 0.65,
+      "model": ["11", 0],
+      "positive": ["12", 0],
+      "negative": ["13", 0],
+      "latent_image": ["9", 0]
+    }
+  },
+  "4": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "v1-5-pruned-emaonly-fp16.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "user_photo.png"
+    }
+  },
+  "6": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "hairstyle_reference.png"
+    }
+  },
+  "7": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "hair_mask.png",
+      "channel": "red"
+    }
+  },
+  "8": {
+    "class_type": "VAEEncodeForInpaint",
+    "inputs": {
+      "pixels": ["5", 0],
+      "vae": ["4", 2],
+      "mask": ["15", 0],
+      "grow_mask_by": 6
+    }
+  },
+  "9": {
+    "class_type": "SetLatentNoiseMask",
+    "inputs": {
+      "samples": ["8", 0],
+      "mask": ["15", 0]
+    }
+  },
+  "10": {
+    "class_type": "IPAdapterUnifiedLoader",
+    "inputs": {
+      "model": ["4", 0],
+      "preset": "PLUS (high strength)"
+    }
+  },
+  "11": {
+    "class_type": "IPAdapterAdvanced",
+    "inputs": {
+      "model": ["10", 0],
+      "ipadapter": ["10", 1],
+      "image": ["6", 0],
+      "attn_mask": ["15", 0],
+      "weight": 0.75,
+      "weight_type": "linear",
+      "combine_embeds": "concat",
+      "start_at": 0.0,
+      "end_at": 0.8,
+      "embeds_scaling": "V only"
+    }
+  },
+  "12": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "photorealistic portrait, natural realistic hair, detailed hair strands, matching hair color to reference, high quality, sharp focus, natural lighting",
+      "clip": ["4", 1]
+    }
+  },
+  "13": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "ugly, deformed, blurry, low quality, disfigured, bad anatomy, mutated, watermark, text, artificial wig look, harsh boundary, color banding on scalp",
+      "clip": ["4", 1]
+    }
+  },
+  "14": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["3", 0],
+      "vae": ["4", 2]
+    }
+  },
+  "15": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": ["7", 0],
+      "channel": "red"
+    }
+  },
+  "16": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["14", 0],
+      "filename_prefix": "hairstyle_result"
+    }
+  }
+}

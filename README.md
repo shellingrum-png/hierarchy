@@ -1,180 +1,125 @@
 # AI 发型替换工具
 
-基于 **ComfyUI + IP-Adapter + ControlNet** 的智能发型替换工具。
+真换发 = **头发区域分割** + **局部重绘(inpaint)** + **参考图引导**。三步缺一不可。
+本仓库用 **ComfyUI + IP-Adapter** 实现：分割出头发 mask，只在 mask 内低重绘幅度地
+重绘头发，脸和背景保留。
 
-## 功能特性
+## ⚠️ 先看清两种模式
 
-- 👤 上传您的正面照片
-- 💇 上传发型参考图片
-- ✨ AI 自动完成发型替换
-- 🎨 支持两种处理模式：
-  - **本地模式**：使用 OpenCV + MediaPipe 进行快速演示
-  - **ComfyUI 模式**：使用 IP-Adapter + ControlNet 实现高质量生成
+| 模式 | 说明 |
+|---|---|
+| **本地模式**（`PROCESSING_MODE=local`） | **演示/占位**。用 OpenCV 把参考发型图 resize 后泊松融合贴上，**不是真换发**，效果是「融合」。仅供无 GPU 时预览 UI 流程。 |
+| **ComfyUI 模式**（`PROCESSING_MODE=comfyui`） | **唯一能出真换发效果的模式**。需要本机跑 ComfyUI + 一块像样的 GPU。 |
+
+> 出融合效果不是 bug，是本地模式的设计结果。要看真效果必须走 ComfyUI 模式。
+
+## 真换发链路
+
+```
+用户照 ──┬─→ [BiSeNet face-parsing] ──→ 头发 mask ──────────┐
+         │   (server/hair_mask.py)                          │
+         └─→ LoadImage ─→ VAEEncodeForInpaint ─→ latent      │
+                                                             ↓
+参考发型图 ─→ IPAdapterAdvanced(attn_mask=m头发mask) ─→ KSampler(mask内低denoise)
+                                                             ↓
+                                                    VAEDecode → 结果(脸保留,只换头发)
+```
+
+工作流文件：`workflows/hairstyle_transfer_inpaint_api.json`（ComfyUI **API 格式**，非 UI 格式）。
 
 ## 项目结构
 
 ```
-comfyui-ip-adapter-controlnet/
+hierarchy/
 ├── server/
-│   ├── app_v2.py              # Web 服务器主程序
-│   ├── image_processor.py     # 本地图像处理模块
-│   ├── templates/
-│   │   └── index.html         # 前端界面
-│   └── static/                # 静态资源
+│   ├── app_v2.py              # Web 服务主程序(Flask)
+│   ├── comfyui_client.py      # ComfyUI HTTP 客户端(上传/提交/轮询/下载)
+│   ├── hair_mask.py           # 头发 mask 分割(BiSeNet)
+│   ├── image_processor.py     # 本地演示模式(贴图融合)
+│   └── templates/index.html   # 前端界面
 ├── workflows/
-│   └── hairstyle_transfer.json # ComfyUI 工作流
-├── uploads/                   # 上传文件目录
-├── outputs/                   # 结果输出目录
-├── models/                    # ComfyUI 模型目录
-├── requirements.txt           # Python 依赖
+│   ├── hairstyle_transfer_inpaint_api.json   # ✅ 正确的 inpaint 工作流
+│   └── _legacy_wrong/         # ❌ 废弃的整图重绘工作流(留档)
+├── requirements.txt
 └── README.md
 ```
 
 ## 快速开始
 
-### 方式一：本地演示模式（推荐快速体验）
+### 本地演示模式（无 GPU，只看 UI 流程）
 
-1. 安装依赖：
+> ⚠️ **Python 版本**：本地演示模式依赖 `mediapipe==0.10.9`，它只有 Python 3.10/3.11 的 wheel。
+> 若用 Python 3.12+，本地演示模式装不上——直接用下面的 ComfyUI 模式（真换发链路在 3.12 上正常）。
+
 ```bash
 pip install -r requirements.txt
+cd server && python app_v2.py
+# 打开 http://localhost:5000
 ```
 
-2. 启动服务器：
-```bash
-cd server
-python app_v2.py
-```
+### ComfyUI 真换发模式（推荐，需要 GPU）
 
-3. 打开浏览器访问：`http://localhost:5000`
-
-### 方式二：ComfyUI 高级模式（高质量生成）
+> ✅ **已在 Apple Silicon Mac 上实测跑通**（M1/16GB，MPS 加速，无独显）：
+> 512×512 出一张约 **4 分钟**，模型共约 **4.5GB**。**不需要 NVIDIA 卡、不需要 ControlNet。**
 
 #### 1. 安装 ComfyUI
 
 ```bash
-# 克隆 ComfyUI
-git clone https://github.com/comfyanonymous/ComfyUI.git
+git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git
 cd ComfyUI
-
-# 安装依赖
-pip install -r requirements.txt
+pip install -r requirements.txt      # 或复用已有 torch 环境
 ```
 
-#### 2. 安装必要的插件
+#### 2. 安装必需插件
 
-**IP-Adapter 插件：**
 ```bash
-cd ComfyUI/custom_nodes
-git clone https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
+cd custom_nodes
+git clone --depth 1 https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
 ```
 
-**ControlNet 辅助插件：**
-```bash
-git clone https://github.com/Fannovel16/comfy_controlnet_preprocessors.git
-```
+> 头发 mask 由本项目的 `server/hair_mask.py`（facexlib BiSeNet）在服务端生成后上传，
+> **无需**再装 ComfyUI 的 face-parsing 自定义节点。
 
-#### 3. 下载模型文件
+#### 3. 下载模型（仅 3 个，约 4.5GB）
 
-将以下模型放入 ComfyUI 的相应目录：
+| 模型 | 放到 | 大小 |
+|---|---|---|
+| `v1-5-pruned-emaonly-fp16.safetensors` | `ComfyUI/models/checkpoints/` | ~2.0G |
+| `ip-adapter-plus_sd15.safetensors` | `ComfyUI/models/ipadapter/` | ~97M |
+| `CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors` | `ComfyUI/models/clip_vision/` | ~2.4G |
 
-**基础模型：**
-- `v1-5-pruned-emaonly.ckpt` → `ComfyUI/models/checkpoints/`
+下载源（国内可用镜像，见 `模型下载一步到位.md`）。文件名必须与上表一致——
+`IPAdapterUnifiedLoader` 用 preset `PLUS (high strength)` 按文件名正则匹配这三个模型。
 
-**IP-Adapter 模型：**
-- `ip-adapter-plus_sd15.bin` → `ComfyUI/models/ipadapter/`
-- `ip-adapter-plus-face_sd15.bin` → `ComfyUI/models/ipadapter/`
-
-**ControlNet 模型：**
-- `control_sd15_openpose.pth` → `ComfyUI/models/controlnet/`
-- `control_sd15_canny.pth` → `ComfyUI/models/controlnet/`
-- `control_sd15_depth.pth` → `ComfyUI/models/controlnet/`
-
-**CLIP Vision 模型：**
-- `CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors` → `ComfyUI/models/clip_vision/`
-
-#### 4. 启动 ComfyUI
+#### 4. 启动 ComfyUI 与 Web 服务
 
 ```bash
-cd ComfyUI
-python main.py
-```
+# 终端 1
+cd ComfyUI && python main.py          # http://localhost:8188
 
-ComfyUI 将在 `http://localhost:8188` 启动
-
-#### 5. 导入工作流
-
-- 在 ComfyUI 界面中点击 `Load`
-- 选择 `workflows/hairstyle_transfer.json`
-- 或者直接将 JSON 文件拖拽到界面中
-
-#### 6. 启动发型替换工具
-
-```bash
-# 设置环境变量使用 ComfyUI 模式
+# 终端 2
 export PROCESSING_MODE=comfyui
 export COMFYUI_URL=http://127.0.0.1:8188
-
-cd server
-python app_v2.py
+cd server && python app_v2.py         # http://localhost:5000
 ```
 
-## 使用说明
+打开 `http://localhost:5000`，左侧传本人正面照、右侧传发型参考图，点「开始换发型」。
 
-1. 打开网页 `http://localhost:5000`
-2. 在左侧上传您的正面照片（建议光线充足，无遮挡）
-3. 在右侧上传您喜欢的发型参考图片
-4. 点击「开始换发型 ✨」按钮
-5. 等待 AI 处理完成（通常需要 30-60 秒）
-6. 查看并下载结果
+## 调参
 
-## 使用提示
+工作流 `workflows/hairstyle_transfer_inpaint_api.json` 里几个关键旋钮：
 
-- ✅ 使用正面、光线充足的照片效果最佳
-- ✅ 发型参考图建议选择正面的高清图片
-- ✅ 避免佩戴帽子、墨镜等遮挡面部的配饰
-- ❌ 避免侧脸或模糊的照片
-- ❌ 避免极端光照条件
-
-## 技术架构
-
-### 本地模式
-- **MediaPipe**：人脸关键点检测
-- **OpenCV**：图像处理和泊松融合
-- **色彩迁移**：保持肤色一致性
-
-### ComfyUI 模式
-- **IP-Adapter**：提取发型参考的特征并迁移到目标图像
-- **ControlNet (OpenPose)**：保持人脸姿态和结构
-- **ControlNet (Canny)**：保持边缘和轮廓
-- **ControlNet (Depth)**：保持深度信息
-
-## 工作流说明
-
-ComfyUI 工作流包含以下核心节点：
-
-1. **模型加载**：Stable Diffusion v1.5 + VAE
-2. **参考图像加载**：用户照片 + 发型参考
-3. **IP-Adapter**：特征提取和迁移
-4. **ControlNet**：多层控制（OpenPose + Canny + Depth）
-5. **采样器**：图像生成
-6. **输出**：保存结果
+- `KSampler.denoise`（默认 0.65）：**调高**头发变化更大，但过高脸会漂移；**调低**更贴原图但变化小。建议 0.5–0.7。
+- `IPAdapterAdvanced.weight`（默认 0.75）：参考发型的强度。过高会把整图风格带走，建议 0.6–0.8。
+- `IPAdapterAdvanced.end_at`（默认 0.8）：让参考只在采样前段起作用，保留更多原始结构。
+- `VAEEncodeForInpaint.grow_mask_by`（默认 6）：mask 向外扩张的像素数，过渡更自然。
 
 ## 故障排除
 
-### ComfyUI 连接失败
-- 确认 ComfyUI 已在 `http://localhost:8188` 运行
-- 检查端口是否被占用
-- 查看 ComfyUI 控制台输出
-
-### 模型加载失败
-- 确认所有模型文件已放在正确的目录
-- 检查模型文件名是否与工作流中配置的一致
-- 确保磁盘空间充足
-
-### 生成效果不佳
-- 尝试使用更高质量的参考图片
-- 调整 IP-Adapter 的权重（默认 0.8）
-- 调整 ControlNet 的权重（OpenPose 0.6，Canny 0.4）
+- **`/status` 返回 `missing_nodes` 非空** → 缺 `ComfyUI_IPAdapter_plus` 插件，按上面第 2 步装。
+- **报「未在人像中检测到头发区域」** → 照片没检测到脸，换一张正面、光线充足的照片。
+- **结果脸变了/不像本人** → 降低 `denoise`，或降低 `IPAdapterAdvanced.weight`。
+- **本地模式结果糊成一团** → 这是贴图融合的正常表现，换用 ComfyUI 模式。
 
 ## 许可证
 

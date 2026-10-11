@@ -1,6 +1,16 @@
+# Web 服务
 flask==3.0.0
 requests==2.31.0
 pillow==10.1.0
 numpy==1.26.2
+
+# 本地演示模式（贴图融合，非真换发）
+# ⚠️ mediapipe==0.10.9 只有 Python 3.10/3.11 的 wheel；
+#    若用 Python 3.12+，本地演示模式装不上，请直接用 ComfyUI 模式。
 opencv-python==4.8.1.78
 mediapipe==0.10.9
+
+# 真换发：头发 mask 分割（BiSeNet face-parsing）
+torch>=2.1.0
+torchvision>=0.16.0
+facexlib==0.3.0
